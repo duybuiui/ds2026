@@ -1,0 +1,209 @@
+\documentclass[a4paper,12pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[vietnamese]{babel} % Hỗ trợ tiếng Việt
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{shapes, arrows, positioning, calc, shadows}
+
+\geometry{
+  top=2cm,
+  bottom=2cm,
+  left=2.5cm,
+  right=2.5cm
+}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+\title{\textbf{Practical Work 1: TCP File Transfer}}
+\author{Nhóm thực hiện} % Bạn điền tên nhóm vào đây
+\date{\today}
+
+\begin{document}
+
+\begin{titlepage}
+    \begin{center}
+        \vspace*{1cm}
+        
+        \Huge
+        \textbf{University of Science and Technology of Hanoi}
+        
+        \vspace{0.5cm}
+        \LARGE
+        Department of Information and Communication Technology
+        
+        \vspace{1.5cm}
+        
+        \textbf{Distributed Systems}
+        
+        \vspace{2cm}
+        
+        \textbf{PRACTICAL WORK 1: TCP FILE TRANSFER}
+        
+        \vspace{1.5cm}
+        
+        \textbf{Report by:} \\
+        \vspace{0.5cm}
+        Name 1 - ID \\
+        Name 2 - ID \\
+        Name 3 - ID \\
+        % Điền thêm tên thành viên nhóm vào đây
+        
+        \vfill
+        
+        \vspace{0.8cm}
+        
+        \Large
+        Hanoi, \the\year
+        
+    \end{center}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+
+\section{Thiết kế giao thức (Protocol Design)}
+Giao thức truyền file được xây dựng dựa trên giao thức TCP/IP để đảm bảo độ tin cậy. Quy trình truyền tải bao gồm các bước sau:
+
+\begin{enumerate}
+    \item \textbf{Khởi tạo kết nối:} Client kết nối đến Server thông qua địa chỉ IP và Port đã định trước (Handshake).
+    \item \textbf{Gửi metadata:} Client gửi tên file (được encode UTF-8) sang Server.
+    \item \textbf{Xác nhận (Acknowledgement):} Server nhận tên file, chuẩn bị file đích để ghi và gửi tín hiệu "ACK" lại cho Client để báo hiệu sẵn sàng nhận dữ liệu.
+    \item \textbf{Truyền dữ liệu:} Sau khi nhận được "ACK", Client mở file cục bộ, đọc từng khối dữ liệu (1024 bytes) và gửi liên tục sang Server.
+    \item \textbf{Kết thúc:} Khi đọc hết file, Client đóng kết nối. Server nhận thấy không còn dữ liệu (EOF), tiến hành đóng file và đóng kết nối socket.
+\end{enumerate}
+
+Dưới đây là biểu đồ tuần tự (Sequence Diagram) mô tả giao thức:
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[node distance=4cm, auto, >=stealth']
+        % Nodes
+        \node[] (client) {\textbf{Client}};
+        \node[right=of client] (server) {\textbf{Server}};
+        
+        % Lines
+        \draw[thick] (client) -- ++(0,-8);
+        \draw[thick] (server) -- ++(0,-8);
+        
+        % Arrows
+        % Connect
+        \draw[->] ($(client)+(0,-1)$) -- node[midway, above] {Connect (SYN)} ($(server)+(0,-1)$);
+        
+        % Send Filename
+        \draw[->] ($(client)+(0,-2)$) -- node[midway, above] {Send Filename (UTF-8)} ($(server)+(0,-2)$);
+        
+        % ACK
+        \draw[<-] ($(client)+(0,-3)$) -- node[midway, above] {Send "ACK"} ($(server)+(0,-3)$);
+        
+        % Data Stream
+        \draw[->, dashed] ($(client)+(0,-4.5)$) -- node[midway, above] {File Data (Chunk 1)} ($(server)+(0,-4.5)$);
+        \draw[->, dashed] ($(client)+(0,-5.0)$) -- node[midway, above] {File Data (Chunk 2)} ($(server)+(0,-5.0)$);
+        \draw[->, dashed] ($(client)+(0,-5.5)$) -- node[midway, above] {...} ($(server)+(0,-5.5)$);
+        
+        % Close
+        \draw[->] ($(client)+(0,-7)$) -- node[midway, above] {Close Connection (EOF)} ($(server)+(0,-7)$);
+        
+    \end{tikzpicture}
+    \caption{Biểu đồ giao thức truyền file qua TCP}
+    \label{fig:protocol}
+\end{figure}
+
+\section{Tổ chức hệ thống (System Organization)}
+Hệ thống được tổ chức theo mô hình Client-Server cơ bản[cite: 1, 1392].
+\begin{itemize}
+    \item \textbf{Server:} Chạy trên máy đích, lắng nghe tại cổng 65432. Server chịu trách nhiệm chấp nhận kết nối, nhận luồng byte và ghi xuống ổ đĩa cứng với tên file được thêm tiền tố "received\_".
+    \item \textbf{Client:} Chạy trên máy nguồn, chịu trách nhiệm đọc file từ ổ đĩa và đẩy dữ liệu qua socket.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        block/.style={rectangle, draw, fill=blue!20, text width=5em, text centered, rounded corners, minimum height=4em},
+        line/.style={draw, -latex'},
+        cloud/.style={draw, ellipse,fill=red!20, node distance=3cm, minimum height=2em}
+    ]
+    
+    % Nodes
+    \node [block] (client) {Client App (client.py)};
+    \node [cloud, right=of client, node distance=4cm] (network) {Internet/ Localhost};
+    \node [block, right=of network, node distance=4cm] (server) {Server App (server.py)};
+    
+    \node [draw, cylinder, shape border rotate=90, aspect=0.25, fill=yellow!30, below=of client, minimum height=1.5cm] (fs_client) {File System (Input)};
+    \node [draw, cylinder, shape border rotate=90, aspect=0.25, fill=yellow!30, below=of server, minimum height=1.5cm] (fs_server) {File System (Output)};
+
+    % Lines
+    \path [line] (fs_client) -- node [midway, left] {Read} (client);
+    \path [line] (client) -- node [midway, above] {Send} (network);
+    \path [line] (network) -- node [midway, above] {Recv} (server);
+    \path [line] (server) -- node [midway, right] {Write} (fs_server);
+
+    \end{tikzpicture}
+    \caption{Kiến trúc hệ thống truyền file}
+    \label{fig:architecture}
+\end{figure}
+
+\section{Cài đặt (Implementation)}
+Hệ thống được cài đặt bằng ngôn ngữ Python sử dụng thư viện `socket` chuẩn.
+
+\subsection{Phía Server (server.py)}
+Server thực hiện bind địa chỉ, lắng nghe, gửi ACK và vòng lặp `while True` để nhận dữ liệu cho đến khi Client ngắt kết nối.
+
+\lstinputlisting[language=Python, caption=Mã nguồn Server]{server.py}
+
+\subsection{Phía Client (client.py)}
+Client thực hiện kết nối, gửi tên file trước, đợi phản hồi ACK từ server để đảm bảo đồng bộ, sau đó mới gửi dữ liệu file.
+
+\lstinputlisting[language=Python, caption=Mã nguồn Client]{client.py}
+
+\section{Phân công công việc (Roles)}
+Dưới đây là bảng phân công công việc của các thành viên trong nhóm:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|c|l|l|}
+        \hline
+        \textbf{STT} & \textbf{Thành viên} & \textbf{Công việc} \\
+        \hline
+        1 & Nguyễn Văn A & Viết mã nguồn Server, thiết kế giao thức \\
+        \hline
+        2 & Trần Thị B & Viết mã nguồn Client, kiểm thử hệ thống \\
+        \hline
+        3 & Lê Văn C & Viết báo cáo, vẽ biểu đồ \\
+        \hline
+    \end{tabular}
+    \caption{Bảng phân công công việc}
+    \label{tab:roles}
+\end{table}
+
+\end{document}
