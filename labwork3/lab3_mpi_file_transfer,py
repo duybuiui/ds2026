@@ -1,0 +1,71 @@
+from mpi4py import MPI
+import os
+import sys
+
+class FileTransferMPI:
+    def __init__(self):
+        self.comm = MPI.COMM_WORLD
+        self.rank = self.comm.Get_rank()
+        self.size = self.comm.Get_size()
+        self.buffer_size = 1024
+
+    def sender(self, filename):
+        if not os.path.exists(filename):
+            print(f"[Sender] Error: File {filename} does not exist.")
+            self.comm.send(None, dest=1, tag=0)
+            return
+
+        file_size = os.path.getsize(filename)
+        self.comm.send({'filename': filename, 'filesize': file_size}, dest=1, tag=1)
+        print(f"[Sender] Sending {filename} ({file_size} bytes)...")
+
+        with open(filename, 'rb') as f:
+            while True:
+                chunk = f.read(self.buffer_size)
+                if not chunk:
+                    break
+                self.comm.send(chunk, dest=1, tag=2)
+        
+        self.comm.send(None, dest=1, tag=2)
+        print("[Sender] File transfer completed.")
+
+    def receiver(self):
+        metadata = self.comm.recv(source=0, tag=1)
+        
+        if metadata is None:
+            print("[Receiver] Transfer aborted.")
+            return
+
+        filename = "received_" + metadata['filename']
+        file_size = metadata['filesize']
+        print(f"[Receiver] Receiving {filename}...")
+
+        received_bytes = 0
+        with open(filename, 'wb') as f:
+            while True:
+                chunk = self.comm.recv(source=0, tag=2)
+                if chunk is None:
+                    break
+                f.write(chunk)
+                received_bytes += len(chunk)
+        
+        print(f"[Receiver] Finished. Total bytes received: {received_bytes}")
+
+    def run(self, filename="data.txt"):
+        if self.size < 2:
+            print("Error: Two MPI processes are required.")
+            return
+
+        if self.rank == 0:
+            self.sender(filename)
+        elif self.rank == 1:
+            self.receiver()
+
+if __name__ == "__main__":
+    import argparse
+    if not os.path.exists("data.txt"):
+        with open("data.txt", "w") as f:
+            f.write("This is a sample file for MPI transfer lab.")
+
+    app = FileTransferMPI()
+    app.run("data.txt")
