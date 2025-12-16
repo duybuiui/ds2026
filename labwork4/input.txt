@@ -1,0 +1,4 @@
+Hello world
+Hello MapReduce
+MapReduce is cool
+Distributed systems are cool
