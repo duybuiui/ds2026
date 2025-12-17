@@ -1,0 +1,73 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{hyperref}
+
+\title{Practical Work 7: Google App Engine Sudoku}
+\author{Group Name}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+This report documents the implementation of a Sudoku game deployed on Google App Engine (GAE) as part of the Cloud Computing course.
+
+\section{Project Structure}
+The project follows the standard directory layout for a Java App Engine application:
+\begin{itemize}
+    \item \textbf{src/main/java}: Contains the Java source code for the Servlet.
+    \item \textbf{src/main/webapp}: Contains the JSP files, HTML, CSS, and JavaScript.
+    \item \textbf{src/main/webapp/WEB-INF}: Contains configuration files including \texttt{web.xml} and \texttt{appengine-web.xml}.
+\end{itemize}
+
+\section{Implementation Details}
+
+\subsection{Important Snippets}
+The application uses a Servlet to handle the main request and forward it to a JSP page which renders the game interface.
+
+\textbf{Configuration (appengine-web.xml):}
+\begin{lstlisting}[language=XML, frame=single]
+<appengine-web-app xmlns="http://appengine.google.com/ns/1.0">
+    <runtime>java8</runtime>
+    <threadsafe>true</threadsafe>
+</appengine-web-app>
+\end{lstlisting}
+
+\textbf{Servlet Logic (SudokuServlet.java):}
+\begin{lstlisting}[language=Java, frame=single]
+public class SudokuServlet extends HttpServlet {
+    @Override
+    public void doGet(HttpServletRequest req, 
+                      HttpServletResponse resp) 
+                      throws IOException, ServletException {
+        req.getRequestDispatcher("/index.jsp").forward(req, resp);
+    }
+}
+\end{lstlisting}
+
+\section{Role Distribution}
+The work was distributed among group members as follows:
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Member Name} & \textbf{Task Description} \\
+\hline
+Member 1 & Setup GAE environment and project structure \\
+\hline
+Member 2 & Implement Sudoku logic in JavaScript and JSP \\
+\hline
+Member 3 & Configuration of web.xml and deployment \\
+\hline
+\end{tabular}
+\caption{Who does what}
+\end{table}
+
+\section{Conclusion}
+The Sudoku application was successfully created and pushed to the forked Github repository. The application runs on the Google Cloud Platform infrastructure.
+
+\end{document}
